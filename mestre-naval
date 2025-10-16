@@ -1,0 +1,148 @@
+#include <stdio.h>
+
+/* ===================== Constantes ===================== */
+#define LINHAS     10
+#define COLUNAS    10
+#define HABILIDADE 5
+
+/* Tamanho das matrizes de habilidade (ímpar) */
+#define MASK       5
+#define MASK_MEIO  (MASK/2)
+
+/* ===================== Assinaturas ===================== */
+void imprimir_tabuleiro(char rotulos[10], int tab[LINHAS][COLUNAS]);
+
+void criar_mask_cruz(int m[MASK][MASK]);
+void criar_mask_octaedro(int m[MASK][MASK]);
+void criar_mask_cone(int m[MASK][MASK]); /* cone apontando para baixo */
+
+void sobrepor_centrada(int tab[LINHAS][COLUNAS], int mask[MASK][MASK], int origem_l, int origem_c);
+void sobrepor_cone_apice(int tab[LINHAS][COLUNAS], int mask[MASK][MASK], int origem_l, int origem_c);
+
+/* ===================== Programa ===================== */
+int main() {
+    /* ====== INÍCIO EXATO DO PROFESSOR ====== */
+    char linha[10] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'};
+    int tabuleiro[10][10];
+    for (int i = 0; i < 10; i++) {
+    /* ====== A PARTIR DAQUI CONTINUAMOS ====== */
+        for (int j = 0; j < COLUNAS; j++) {
+            tabuleiro[i][j] = 0; /* água */
+        }
+    }
+
+    /* 1) Criar máscaras das habilidades (0/1) dinamicamente */
+    int cone[MASK][MASK];
+    int cruz[MASK][MASK];
+    int octa[MASK][MASK];
+
+    criar_mask_cone(cone);
+    criar_mask_cruz(cruz);
+    criar_mask_octaedro(octa);
+
+    /* 2) Definir origens das habilidades no tabuleiro
+          - cruz e octaedro: origem é o CENTRO da máscara
+          - cone: origem é o ÁPICE (topo central da máscara) */
+    int origem_cruz_l = 4, origem_cruz_c = 2;
+    int origem_octa_l = 6, origem_octa_c = 5;
+    int origem_cone_l = 1, origem_cone_c = 7;
+
+    /* 3) Sobrepor habilidades (marcar 5); como não há navio, só pintamos 5 onde mask==1 */
+    sobrepor_centrada(tabuleiro, cruz,  origem_cruz_l, origem_cruz_c);
+    sobrepor_centrada(tabuleiro, octa,  origem_octa_l, origem_octa_c);
+    sobrepor_cone_apice(tabuleiro, cone, origem_cone_l, origem_cone_c);
+
+    /* 4) Exibir tabuleiro final: 0 (água), 5 (área de habilidade) */
+    printf("\n=== HABILIDADES (0=agua, 5=habilidade) ===\n\n");
+    imprimir_tabuleiro(linha, tabuleiro);
+
+    return 0;
+}
+
+/* ===================== Implementações auxiliares ===================== */
+
+void imprimir_tabuleiro(char rotulos[10], int tab[LINHAS][COLUNAS]) {
+    printf("   ");
+    for (int j = 0; j < COLUNAS; j++) printf("%d ", j);
+    printf("\n");
+    for (int i = 0; i < LINHAS; i++) {
+        printf("%c  ", rotulos[i]);
+        for (int j = 0; j < COLUNAS; j++) printf("%d ", tab[i][j]);
+        printf("\n");
+    }
+}
+
+/* Cruz: linha e coluna centrais da máscara = 1 */
+void criar_mask_cruz(int m[MASK][MASK]) {
+    for (int i = 0; i < MASK; i++) {
+        for (int j = 0; j < MASK; j++) {
+            if (i == MASK_MEIO || j == MASK_MEIO) m[i][j] = 1;
+            else m[i][j] = 0;
+        }
+    }
+}
+
+/* Octaedro (losango): |i-centro| + |j-centro| <= raio */
+void criar_mask_octaedro(int m[MASK][MASK]) {
+    int raio = MASK_MEIO;
+    for (int i = 0; i < MASK; i++) {
+        for (int j = 0; j < MASK; j++) {
+            int di = (i > MASK_MEIO) ? (i - MASK_MEIO) : (MASK_MEIO - i);
+            int dj = (j > MASK_MEIO) ? (j - MASK_MEIO) : (MASK_MEIO - j);
+            m[i][j] = (di + dj <= raio) ? 1 : 0;
+        }
+    }
+}
+
+/* Cone apontando para baixo: ápice no topo central; expande a cada linha
+   Exemplo MASK=5:
+     0 0 1 0 0
+     0 1 1 1 0
+     1 1 1 1 1
+     0 0 0 0 0
+     0 0 0 0 0
+*/
+void criar_mask_cone(int m[MASK][MASK]) {
+    for (int i = 0; i < MASK; i++)
+        for (int j = 0; j < MASK; j++)
+            m[i][j] = 0;
+
+    for (int r = 0; r <= MASK_MEIO; r++) {
+        int cmin = MASK_MEIO - r;
+        int cmax = MASK_MEIO + r;
+        for (int c = cmin; c <= cmax; c++) {
+            m[r][c] = 1;
+        }
+    }
+}
+
+/* Sobrepõe máscara centrada no ponto de origem (para cruz e octaedro) */
+void sobrepor_centrada(int tab[LINHAS][COLUNAS], int mask[MASK][MASK], int origem_l, int origem_c) {
+    for (int i = 0; i < MASK; i++) {
+        for (int j = 0; j < MASK; j++) {
+            if (mask[i][j] == 1) {
+                int tl = origem_l + (i - MASK_MEIO);
+                int tc = origem_c + (j - MASK_MEIO);
+                if (tl >= 0 && tl < LINHAS && tc >= 0 && tc < COLUNAS) {
+                    tab[tl][tc] = HABILIDADE;
+                }
+            }
+        }
+    }
+}
+
+/* Sobrepõe o cone usando o ÁPICE como referência (topo da máscara alinhado na origem) */
+void sobrepor_cone_apice(int tab[LINHAS][COLUNAS], int mask[MASK][MASK], int origem_l, int origem_c) {
+    for (int i = 0; i < MASK; i++) {
+        for (int j = 0; j < MASK; j++) {
+            if (mask[i][j] == 1) {
+                int tl = origem_l + i;               /* desloca a partir do topo */
+                int tc = origem_c + (j - MASK_MEIO); /* centraliza na coluna da origem */
+                if (tl >= 0 && tl < LINHAS && tc >= 0 && tc < COLUNAS) {
+                    tab[tl][tc] = HABILIDADE;
+                }
+            }
+        }
+    }
+}
+
